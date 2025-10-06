@@ -31,8 +31,8 @@ class MyNode(BaseNode):
         self.add_output('Output')
 
         # Add a registered Run button
-        self.add_button(name='btn_run', text='Run')
-        btn = self.get_widget('btn_run')
+        self.add_button(name='Run', text='Run')
+        btn = self.get_widget('Run')
         btn._button.setStyleSheet(STYLESHEET)  # Apply custom stylesheet to button
         # btn.pressed.connect(self.on_run_pressed)
         btn.setToolTip('Execute this node')
