@@ -1,107 +1,148 @@
 # -*- coding: utf-8 -*-
 """
-Dark-themed Node Graph example using PySide6 and NodeGraphQt.
-Includes a main menu bar, dark blue nodes, a properly registered 'Run' button,
-and an 'Add Node' option in the right-click context menu.
+FlowDip — Node Graph editor using PySide6 + NodeGraphQt.
+Starts with a docked Nodes Palette on the left, no menu bar.
+Uses global CSS for UI and Python theme variables for NodeGraph.
 """
 import os
-from re import S
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QApplication, QMainWindow, QDockWidget
+from NodeGraphQt import NodeGraph, BaseNode, NodeGraphMenu, NodesPaletteWidget
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenuBar
-from PySide6.QtGui import QAction, QCursor
-from NodeGraphQt import NodeGraph, BaseNode, NodesMenu
+from hotkey_functions import *  # if needed
+
+
+# ----------------------------------------------------------------------
+# Global Constants
+# ----------------------------------------------------------------------
+BASE_DIR = os.path.dirname(__file__)
+MENU_JSON_PATH = os.path.join(BASE_DIR, "hotkeys.json")
+THEMES_DIR = os.path.join(BASE_DIR, "themes")
+
+# ----------------------------------------------------------------------
+# Theme Color Palettes
+# ----------------------------------------------------------------------
+GRAY = {
+    "background": (34, 34, 34),   # NodeGraph background color
+    "grid": (85, 85, 85),         # NodeGraph grid color
+    "node_bg": (58, 58, 58),      # Node body color
+    "node_border": (100, 100, 100),
+    "accent": (108, 158, 255),
+    "text": (224, 224, 224),
+    "css": os.path.join(THEMES_DIR, "gray.css"),
+}
+
+DARK_BLUE = {
+    "background": (15, 17, 22),
+    "grid": (25, 30, 35),
+    "node_bg": (25, 30, 40),
+    "node_border": (45, 55, 65),
+    "accent": (91, 140, 255),
+    "text": (230, 234, 242),
+    "css": os.path.join(THEMES_DIR, "dark_blue.css"),
+}
+
+# Set active theme
+ACTIVE_THEME = DARK_BLUE
+
+# ----------------------------------------------------------------------
+# Global stylesheet (loaded at runtime)
+# ----------------------------------------------------------------------
+GLOBAL_STYLESHEET = ""
+
 
 # ----------------------------------------------------------------------
 # Custom Node Definition
 # ----------------------------------------------------------------------
 class MyNode(BaseNode):
-    """
-    Custom dark-blue node with input/output ports and a 'Run' button.
-    """
+    """Custom FlowDip node with input/output ports and a 'Run' button."""
+
     __identifier__ = 'com.flowdip'
     NODE_NAME = 'FlowDip Node'
 
     def __init__(self):
-        super(MyNode, self).__init__()
+        super().__init__()
 
-        # Dark, bluish tone for node body
-        self.set_color(25, 35, 55)  # Almost black, slight blue tint
-        # Add ports
+        # Set node color using theme
+        r, g, b = ACTIVE_THEME["node_bg"]
+        self.set_color(r, g, b)
+
+        # Ports
         self.add_input('Input')
         self.add_output('Output')
 
-        # Add a registered Run button
+        # Add 'Run' button
         self.add_button(name='Run', text='Run')
         btn = self.get_widget('Run')
-        btn._button.setStyleSheet(STYLESHEET)  # Apply custom stylesheet to button
-        # btn.pressed.connect(self.on_run_pressed)
+
+        if GLOBAL_STYLESHEET:
+            btn._button.setStyleSheet(GLOBAL_STYLESHEET)
+
         btn.setToolTip('Execute this node')
         btn._button.clicked.connect(self.on_run_pressed)
 
-    # ------------------------------------------------------------------
     def on_run_pressed(self):
-        """Callback executed when the Run button is clicked."""
-        print(f"Node '{self.name()}' executed!")
+        """Callback executed when 'Run' button is clicked."""
+        print(f"Node '{self.name()}' executed.")
 
 
 # ----------------------------------------------------------------------
 # Main Application Window
 # ----------------------------------------------------------------------
 class MainWindow(QMainWindow):
+    """Main application window with NodeGraph viewer and docked palette."""
+
     def __init__(self):
-        super(MainWindow, self).__init__()
+        super().__init__()
 
-        # Initialize node graph
+        # ------------------ Graph Setup ------------------
         self.graph = NodeGraph()
-        self.viewer = self.graph.widget
-        self.viewer.setStyleSheet(STYLESHEET)  # Apply custom stylesheet to viewer
-        self.graph.get_context_menu("graph").qmenu.setStyleSheet(STYLESHEET)
-        self.graph.get_context_menu("nodes").qmenu.setStyleSheet(STYLESHEET)
+        self.graph.set_context_menu_from_file(MENU_JSON_PATH)
 
-        # Register custom node type
+        # Apply theme colors
+        bg = ACTIVE_THEME["background"]
+        grid = ACTIVE_THEME["grid"]
+        self.graph.set_background_color(*bg)
+        self.graph.set_grid_color(*grid)
+
+        # Register node type
         self.graph.register_node(MyNode)
 
-        # Create a sample node
-        self.graph.create_node('com.flowdip.MyNode', name='Node A', pos=(100, 100))
+        # Viewer setup
+        self.viewer = self.graph.widget
+        if GLOBAL_STYLESHEET:
+            self.viewer.setStyleSheet(GLOBAL_STYLESHEET)
+            self.graph.context_menu().qmenu.setStyleSheet(GLOBAL_STYLESHEET)
+            for item in self.graph.context_menu().get_items():
+                if isinstance(item, NodeGraphMenu):
+                    item.qmenu.setStyleSheet(GLOBAL_STYLESHEET)
 
-        # Extend the built-in context menu
+        # ------------------ Window Setup ------------------
+        self.setWindowTitle("FlowDip")
+        self.resize(1600, 900)
+        self.setCentralWidget(self.viewer)
         self._extend_context_menu()
 
-        # Apply dark, desaturated theme
-        self.graph.set_background_color(15, 17, 22)  # Deep charcoal gray
-        self.graph.set_grid_color(40, 45, 60)        # Muted bluish grid
+        # Create default node
+        self.graph.create_node('com.flowdip.MyNode', name='Node A', pos=(100, 100))
 
-        # Basic window setup
-        self.setWindowTitle("FlowDip - Node Graph (Dark Blue Theme)")
-        self.resize(900, 700)
-        self.setCentralWidget(self.viewer)
+        # Add and attach the Node Palette by default
+        self._create_nodes_palette()
 
-        # Add menu bar
-        self._create_menus()
-
-    # ------------------------------------------------------------------
-    # Extend NodeGraphQt Context Menu
     # ------------------------------------------------------------------
     def _extend_context_menu(self):
-        """
-        Adds an 'Add Node' option to the background right-click context menu.
-        """
+        """Extend background right-click menu with extra actions."""
         menu = self.graph.context_menu()
         menu.add_separator()
-        menu.add_command(
-            name="Add Node",
-            func=self._on_add_node,
-        )
+        menu.add_command("Add Node", self._on_add_node)
+        menu.add_command("Open Nodes Palette", self._on_open_node_palette)
 
     # ------------------------------------------------------------------
-    # Add Node Command
-    # ------------------------------------------------------------------
     def _on_add_node(self):
-        """
-        Adds a new MyNode instance at the current cursor (mouse) position.
-        """
+        """Adds a new node at the cursor position."""
         viewer = self.graph.viewer()
-        cursor_pos = QCursor.pos()  # Global cursor position
+        cursor_pos = QCursor.pos()
         local_pos = viewer.mapFromGlobal(cursor_pos)
         scene_pos = viewer.mapToScene(local_pos)
 
@@ -110,81 +151,49 @@ class MainWindow(QMainWindow):
             name='New Node',
             pos=(scene_pos.x(), scene_pos.y())
         )
-
         print(f"New node added at ({scene_pos.x():.0f}, {scene_pos.y():.0f})")
 
     # ------------------------------------------------------------------
-    # Menu Bar
-    # ------------------------------------------------------------------
-    def _create_menus(self):
-        menu_bar = QMenuBar(self)
-
-        # File Menu
-        file_menu = menu_bar.addMenu("File")
-
-        new_action = QAction("New", self)
-        new_action.triggered.connect(self.new_graph)
-        file_menu.addAction(new_action)
-
-        save_action = QAction("Save", self)
-        save_action.triggered.connect(self.save_graph)
-        file_menu.addAction(save_action)
-
-        file_menu.addSeparator()
-
-        exit_action = QAction("Exit", self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-
-        # Edit Menu
-        edit_menu = menu_bar.addMenu("Edit")
-
-        clear_action = QAction("Clear Graph", self)
-        clear_action.triggered.connect(self.clear_graph)
-        edit_menu.addAction(clear_action)
-
-        menu_bar.setNativeMenuBar(False)
-        self.setMenuBar(menu_bar)
+    def _on_open_node_palette(self):
+        """Opens a floating Nodes Palette."""
+        dock = self._create_nodes_palette(floating=True)
+        dock.show()
 
     # ------------------------------------------------------------------
-    # Menu Actions
-    # ------------------------------------------------------------------
-    def new_graph(self):
-        """Clear and start a new graph."""
-        self.graph.clear_session()
-        print("🧩 New graph created.")
+    def _create_nodes_palette(self, floating: bool = False):
+        """Creates and attaches a Nodes Palette dock."""
+        dock = QDockWidget("Nodes Palette", self)
+        dock.setWidget(NodesPaletteWidget(node_graph=self.graph))
+        dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        dock.setFloating(floating)
+        self.addDockWidget(Qt.LeftDockWidgetArea, dock)
+        return dock
 
-    def save_graph(self):
-        """Placeholder for saving."""
-        print("💾 Save graph (not implemented).")
 
-    def clear_graph(self):
-        """Remove all nodes."""
-        self.graph.clear_graph()
-        print("🧹 Graph cleared.")
-
-STYLESHEET = ""
 # ----------------------------------------------------------------------
 # Application Entry Point
 # ----------------------------------------------------------------------
 def main():
+    global GLOBAL_STYLESHEET
+
     app = QApplication([])
 
-    # Load external stylesheet (CSS/QSS)
-    css_path = os.path.join(os.path.dirname(__file__), "themes/dark_blue.css")
-
+    # Load CSS stylesheet
+    css_path = ACTIVE_THEME["css"]
     if os.path.exists(css_path):
-        with open(css_path, "r") as f:
-            STYLESHEET = f.read()
-            app.setStyleSheet(STYLESHEET)
-        print(f"Loaded stylesheet: {css_path}")
+        with open(css_path, "r", encoding="utf-8") as f:
+            GLOBAL_STYLESHEET = f.read()
+        app.setStyleSheet(GLOBAL_STYLESHEET)
+        print(f"✅ Loaded stylesheet: {css_path}")
     else:
-        print(f"Stylesheet not found: {css_path}")
+        print(f"⚠️ Stylesheet not found: {css_path}")
 
-    # Create and show the main window
+    # Launch main window
     window = MainWindow()
-    window.setStyleSheet(STYLESHEET)  # Apply stylesheet to main window
+    if GLOBAL_STYLESHEET:
+        window.setStyleSheet(GLOBAL_STYLESHEET)
     window.show()
+
     app.exec()
 
 

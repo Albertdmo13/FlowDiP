@@ -30,7 +30,7 @@ class Dataset:
         self.dataset_task = None
         self.balance_ratio: list = []
         self.split_ratio: list = []
-        
+
         if self.grouped is True:
             self.num_images = sum(len(group.data) for group in images)
         else:
