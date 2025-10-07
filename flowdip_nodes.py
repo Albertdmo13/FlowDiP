@@ -2,6 +2,7 @@ from time import sleep
 from typing import List, Optional
 from uuid import uuid4
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QObject, Signal, QThread, QMetaObject, Qt, Slot
 
 from data_classes import Dataset, Image, ImageGroup
 from enum import IntEnum, Enum
@@ -34,20 +35,23 @@ class ConnectionState(IntEnum):
     INCOMPATIBLE_CONNECTION = 0
     DISCONNECTED = 1
 
-class FlowDiPNode(BaseNode):
 
-    __identifier__ = 'flowdip'
+class FrontEndFlowDiPNode(BaseNode):
 
     def __init__(self):
         super().__init__()
 
+        # Thread for backend
+        self.backend_thread = QThread()
+        self.backend_node = BackEndFlowDiPNode(frontend_node=self)
+        self.backend_node.moveToThread(self.backend_thread)
+        self.backend_node.state_update.connect(self.update_state)
+        self.backend_thread.start()
+        # self.backend_node.port_state_update.connect(self.update_port_state)
+
         # Set node color using theme
         self.default_color = ACTIVE_THEME["node_bg"]
         self.set_color(*self.default_color)
-
-        self.dip_inputs: List[Input] = []
-        self.dip_outputs: List[Output] = []
-        self.state: NodeState = NodeState.IDLE
 
         # Add 'Run' button
         self.add_button(name='Run', text='Run')
@@ -58,6 +62,8 @@ class FlowDiPNode(BaseNode):
 
         btn.setToolTip('Execute this node')
         btn._button.clicked.connect(self.run)
+
+        self.update()
 
     def update_state(self, state: NodeState):
         self.state = state
@@ -71,15 +77,46 @@ class FlowDiPNode(BaseNode):
         elif state == NodeState.WAITING:
             default_light_color = [min(255, c*1.2) for c in self.default_color]
             self.set_color(*default_light_color)  # Lighten
-        QApplication.processEvents()
+
+        self.update()
 
     def run(self):
+        # delegate to backend thread
+        QMetaObject.invokeMethod(self.backend_node, "run", Qt.QueuedConnection)
+
+class BackEndFlowDiPNode(QObject):
+
+    finished = Signal()
+    state_update = Signal(NodeState)
+    port_state_update = Signal(str, InputState)
+
+    def __init__(self, frontend_node: Optional[FrontEndFlowDiPNode] = None):
+        super().__init__()
+
+        self.frontend_node = frontend_node
+
+        self.dip_inputs: List[Input] = []
+        self.dip_outputs: List[Output] = []
+        self.state: NodeState = NodeState.IDLE
+
+    @Slot()
+    def run(self):
+        print(f"Running node '{self.frontend_node.name()}'...")
+        self.state_update.emit(NodeState.RUNNING)
+        sleep(2)  # Simulate processing time
+        self.state_update.emit(NodeState.IDLE)
+        print(f"Finished node '{self.frontend_node.name()}'...")
+        return
         print(self.dip_inputs)
         self.update_state(NodeState.WAITING)
 
         # Make sure all critical dip_inputs are connected and OK
         for input in self.dip_inputs:
-            input.connection_state = input.check_connection()
+            cs = input.check_connection()
+            if input.connection_state != cs:
+                input.connection_state = cs
+                self.port_state_update.emit(input.name, cs)
+
             if input.connection_state != ConnectionState.CONNECTED_OK and input.critical:
                 self.update_state(NodeState.MISSING_CRITICAL_INPUT)
                 return 
@@ -127,10 +164,9 @@ class FlowDiPNode(BaseNode):
         pass    
 
 class Input():
-    def __init__(self, critical: bool = False, port: Optional[Port] = None):
+    def __init__(self, name: str, critical: bool = False):
 
-        self.port = port
-
+        self.name: str = name
         self.output: Optional[Output] = None
         self.critical: bool = critical
         self.state: InputState = InputState.UNKNOWN
@@ -150,24 +186,17 @@ class Input():
 
 
 class Output():
-    def __init__(self, port: Optional[Port] = None):
+    def __init__(self):
         super().__init__()
-        self.port = port
         self.tooltip: Optional[str] = None
         self.connection_state: ConnectionState = ConnectionState.DISCONNECTED
         self.data = None
         self.datatype: Optional[type] = None
         self.possible_types: List[type] = []
 
-class DatasetGenerator(FlowDiPNode):
+class DatasetGenerator(FrontEndFlowDiPNode):
     NODE_NAME = "Dataset Generator"
 
     def __init__(self):
         super().__init__()
         self.dataset: Optional[Dataset] = None
-
-        self.create_port(name="Dataset", is_input=False)
-        self.create_port(name="Images", is_input=True, critical=True)
-
-    def _run(self):
-        sleep(1)  # Simulate processing time

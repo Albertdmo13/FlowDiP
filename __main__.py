@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
 
         # Register FlowDiP nodes
         for flowdip_node in flowdip_nodes.__dict__.values():
-            if isinstance(flowdip_node, type) and issubclass(flowdip_node, flowdip_nodes.FlowDiPNode):
+            if isinstance(flowdip_node, type) and issubclass(flowdip_node, flowdip_nodes.FrontEndFlowDiPNode):
                 self.graph.register_node(flowdip_node)
 
         # Viewer setup
