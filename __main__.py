@@ -13,43 +13,7 @@ from NodeGraphQt import NodeGraph, BaseNode, NodeGraphMenu, NodesPaletteWidget
 from hotkey_functions import *  # if needed
 import flowdip_nodes
 
-# ----------------------------------------------------------------------
-# Global Constants
-# ----------------------------------------------------------------------
-BASE_DIR = os.path.dirname(__file__)
-MENU_JSON_PATH = os.path.join(BASE_DIR, "hotkeys.json")
-THEMES_DIR = os.path.join(BASE_DIR, "themes")
-
-# ----------------------------------------------------------------------
-# Theme Color Palettes
-# ----------------------------------------------------------------------
-GRAY = {
-    "background": (34, 34, 34),   # NodeGraph background color
-    "grid": (85, 85, 85),         # NodeGraph grid color
-    "node_bg": (58, 58, 58),      # Node body color
-    "node_border": (100, 100, 100),
-    "accent": (108, 158, 255),
-    "text": (224, 224, 224),
-    "css": os.path.join(THEMES_DIR, "gray.css"),
-}
-
-DARK_BLUE = {
-    "background": (28, 32, 40),      # Darker background
-    "grid": (45, 52, 66),            # Darker grid
-    "node_bg": (50, 52, 65),         # Darker node body
-    "node_border": (65, 80, 100),    # Darker node border
-    "accent": (100, 140, 210),       # Muted accent
-    "text": (210, 220, 235),         # Softer text
-    "css": os.path.join(THEMES_DIR, "dark_blue.css"),
-}
-
-# Set active theme
-ACTIVE_THEME = DARK_BLUE
-
-# ----------------------------------------------------------------------
-# Global stylesheet (loaded at runtime)
-# ----------------------------------------------------------------------
-GLOBAL_STYLESHEET = ""
+from __init__ import *  # to load themes and global constants
 
 # Helper to recursively set stylesheets for context menus
 def set_context_menu_stylesheet(menu):
@@ -179,7 +143,6 @@ class MainWindow(QMainWindow):
 # Application Entry Point
 # ----------------------------------------------------------------------
 def main():
-    global GLOBAL_STYLESHEET
 
     app = QApplication([])
 
