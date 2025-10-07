@@ -1,5 +1,5 @@
 from time import sleep
-from typing import List, Optional
+from typing import List, Optional, Any
 from uuid import uuid4
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal, QThread, QMetaObject, Qt, Slot
@@ -9,6 +9,29 @@ from enum import IntEnum, Enum
 
 from NodeGraphQt import NodeGraph, BaseNode, Port
 from __init__ import *  # to load themes and global constants
+from threading import Thread, Event
+
+from multiprocessing import Queue
+
+class RequestType(IntEnum):
+    CREATE_NODE = 0
+    EDIT_NODE = 1
+    RUN_NODE = 2
+
+class EventType(IntEnum):
+    UPDATE_NODE_STATE = 0
+    UPDATE_PORT_STATE = 1
+    SEND_FRAME = 2
+
+@dataclass
+class Request:
+    request_type: RequestType
+    payload: Any
+
+@dataclass
+class Event:
+    event_type: EventType
+    payload: Any
 
 class InferencedTask(str, Enum):
     OBJECT_DETECTION = "Object Detection"
@@ -40,14 +63,6 @@ class FrontEndFlowDiPNode(BaseNode):
 
     def __init__(self):
         super().__init__()
-
-        # Thread for backend
-        self.backend_thread = QThread()
-        self.backend_node = BackEndFlowDiPNode(frontend_node=self)
-        self.backend_node.moveToThread(self.backend_thread)
-        self.backend_node.state_update.connect(self.update_state)
-        self.backend_thread.start()
-        # self.backend_node.port_state_update.connect(self.update_port_state)
 
         # Set node color using theme
         self.default_color = ACTIVE_THEME["node_bg"]
@@ -84,30 +99,35 @@ class FrontEndFlowDiPNode(BaseNode):
         # delegate to backend thread
         QMetaObject.invokeMethod(self.backend_node, "run", Qt.QueuedConnection)
 
-class BackEndFlowDiPNode(QObject):
+class BackEndFlowDiPNode(Thread):
 
-    finished = Signal()
-    state_update = Signal(NodeState)
-    port_state_update = Signal(str, InputState)
-
-    def __init__(self, frontend_node: Optional[FrontEndFlowDiPNode] = None):
+    def __init__(self, name:Optional[str] = None):
         super().__init__()
 
-        self.frontend_node = frontend_node
+        self.name = name
+
+        self.start_e = Event()
+        self.done_e = Event()
 
         self.dip_inputs: List[Input] = []
         self.dip_outputs: List[Output] = []
         self.state: NodeState = NodeState.IDLE
 
-    @Slot()
     def run(self):
-        print(f"Running node '{self.frontend_node.name()}'...")
-        self.state_update.emit(NodeState.RUNNING)
-        sleep(2)  # Simulate processing time
-        self.state_update.emit(NodeState.IDLE)
-        print(f"Finished node '{self.frontend_node.name()}'...")
-        return
-        print(self.dip_inputs)
+        """Execution loop"""
+        while self._running is True:
+            # Wait for start event trigger
+            self.start_e.wait()
+            self.start_e.clear()
+            self.done_e.clear()
+
+            self.execute()
+
+            # Trigger done for waiting events
+            self.done_e.set()
+
+    def execute(self):
+
         self.update_state(NodeState.WAITING)
 
         # Make sure all critical dip_inputs are connected and OK
@@ -115,24 +135,30 @@ class BackEndFlowDiPNode(QObject):
             cs = input.check_connection()
             if input.connection_state != cs:
                 input.connection_state = cs
-                self.port_state_update.emit(input.name, cs)
+                self.update_port(cs)
 
+            # If critical input is not properly connected abort execution
             if input.connection_state != ConnectionState.CONNECTED_OK and input.critical:
                 self.update_state(NodeState.MISSING_CRITICAL_INPUT)
                 return 
-        
-        # If any critical input is missing or has an error, do not run
-        if NodeState.WAITING != self.state:
-            return
 
         # Run all dependant nodes
         for input in self.dip_inputs:
             if input.output is not None and input.connection_state == ConnectionState.CONNECTED_OK:
-                input.output.node.run()
+                input.output.node.start_e.set()
+
+        # Wait for all dependant nodes to finish execution
+        for input in self.dip_inputs:
+            if input.output is not None and input.connection_state == ConnectionState.CONNECTED_OK:
+                input.output.node.done_e.wait()
                 if input.output.node.state != NodeState.IDLE and input.critical:
                     self.update_state(NodeState.CRITICAL_INPUT_ERROR)
                     return
 
+        # If any critical input is missing or has an error, do not run
+        if NodeState.WAITING != self.state:
+            return
+               
         self.update_state(NodeState.RUNNING)
         try:
             self._run()
@@ -144,6 +170,12 @@ class BackEndFlowDiPNode(QObject):
             self.update_state(NodeState.IDLE)
 
         return
+    
+    def update_port(self, connection_state: ConnectionState):
+        pass
+
+    def update_state(self, node_state: NodeState):
+        pass
 
     def create_port(self, name: str, is_input: bool = True, critical: bool = False) -> Port:
         # Create NodeGraph port
@@ -184,7 +216,6 @@ class Input():
             
         return ConnectionState.CONNECTED_OK
 
-
 class Output():
     def __init__(self):
         super().__init__()
@@ -200,3 +231,31 @@ class DatasetGenerator(FrontEndFlowDiPNode):
     def __init__(self):
         super().__init__()
         self.dataset: Optional[Dataset] = None
+
+class BackEndManager(Thread):
+    def __init__(self, req_queue: Queue, event_queue: Queue):
+        self.req_queue = req_queue
+        self.event_queue = event_queue
+        self._running = True
+
+    def run(self):
+        while self._running is True:
+            req = self.req_queue.get()
+            self.handle_request()
+
+    def handle_request(self, request):
+        pass
+
+class FrontEndManager(QThread):
+    def __init__(self, req_queue: Queue, event_queue: Queue):
+        self.req_queue = req_queue
+        self.event_queue = event_queue
+        self._running = True
+
+    def run(self):
+        while self._running is True:
+            req = self.req_queue.get()
+            self.handle_request()
+
+    def handle_request(self, request):
+        pass

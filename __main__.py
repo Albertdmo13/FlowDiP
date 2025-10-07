@@ -23,41 +23,6 @@ def set_context_menu_stylesheet(menu):
             set_context_menu_stylesheet(item)
 
 # ----------------------------------------------------------------------
-# Custom Node Definition
-# ----------------------------------------------------------------------
-class MyNode(BaseNode):
-    """Custom FlowDip node with input/output ports and a 'Run' button."""
-
-    __identifier__ = 'flowdip'
-    NODE_NAME = 'FlowDip Node'
-
-    def __init__(self):
-        super().__init__()
-
-        # Set node color using theme
-        r, g, b = ACTIVE_THEME["node_bg"]
-        self.set_color(r, g, b)
-
-        # Ports
-        self.add_input('Input')
-        self.add_output('Output')
-
-        # Add 'Run' button
-        self.add_button(name='Run', text='Run')
-        btn = self.get_widget('Run')
-
-        if GLOBAL_STYLESHEET:
-            btn._button.setStyleSheet(GLOBAL_STYLESHEET)
-
-        btn.setToolTip('Execute this node')
-        btn._button.clicked.connect(self.on_run_pressed)
-
-    def on_run_pressed(self):
-        """Callback executed when 'Run' button is clicked."""
-        print(f"Node '{self.name()}' executed.")
-
-
-# ----------------------------------------------------------------------
 # Main Application Window
 # ----------------------------------------------------------------------
 class MainWindow(QMainWindow):
@@ -152,9 +117,9 @@ def main():
         with open(css_path, "r", encoding="utf-8") as f:
             GLOBAL_STYLESHEET = f.read()
         app.setStyleSheet(GLOBAL_STYLESHEET)
-        print(f"✅ Loaded stylesheet: {css_path}")
+        print(f"Loaded stylesheet: {css_path}")
     else:
-        print(f"⚠️ Stylesheet not found: {css_path}")
+        print(f"Stylesheet not found: {css_path}")
 
     # Launch main window
     window = MainWindow()
