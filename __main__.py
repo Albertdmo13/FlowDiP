@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QDockWidget
 from NodeGraphQt import NodeGraph, BaseNode, NodeGraphMenu, NodesPaletteWidget
 
 from hotkey_functions import *  # if needed
-
+import flowdip_nodes
 
 # ----------------------------------------------------------------------
 # Global Constants
@@ -34,12 +34,12 @@ GRAY = {
 }
 
 DARK_BLUE = {
-    "background": (15, 17, 22),
-    "grid": (25, 30, 35),
-    "node_bg": (25, 30, 40),
-    "node_border": (45, 55, 65),
-    "accent": (91, 140, 255),
-    "text": (230, 234, 242),
+    "background": (28, 32, 40),      # Darker background
+    "grid": (45, 52, 66),            # Darker grid
+    "node_bg": (50, 52, 65),         # Darker node body
+    "node_border": (65, 80, 100),    # Darker node border
+    "accent": (100, 140, 210),       # Muted accent
+    "text": (210, 220, 235),         # Softer text
     "css": os.path.join(THEMES_DIR, "dark_blue.css"),
 }
 
@@ -51,6 +51,12 @@ ACTIVE_THEME = DARK_BLUE
 # ----------------------------------------------------------------------
 GLOBAL_STYLESHEET = ""
 
+# Helper to recursively set stylesheets for context menus
+def set_context_menu_stylesheet(menu):
+    if isinstance(menu, NodeGraphMenu):
+        menu.qmenu.setStyleSheet(GLOBAL_STYLESHEET)
+        for item in menu.get_items():
+            set_context_menu_stylesheet(item)
 
 # ----------------------------------------------------------------------
 # Custom Node Definition
@@ -58,7 +64,7 @@ GLOBAL_STYLESHEET = ""
 class MyNode(BaseNode):
     """Custom FlowDip node with input/output ports and a 'Run' button."""
 
-    __identifier__ = 'com.flowdip'
+    __identifier__ = 'flowdip'
     NODE_NAME = 'FlowDip Node'
 
     def __init__(self):
@@ -106,17 +112,16 @@ class MainWindow(QMainWindow):
         self.graph.set_background_color(*bg)
         self.graph.set_grid_color(*grid)
 
-        # Register node type
-        self.graph.register_node(MyNode)
+        # Register FlowDiP nodes
+        for flowdip_node in flowdip_nodes.__dict__.values():
+            if isinstance(flowdip_node, type) and issubclass(flowdip_node, flowdip_nodes.FlowDiPNode):
+                self.graph.register_node(flowdip_node)
 
         # Viewer setup
         self.viewer = self.graph.widget
         if GLOBAL_STYLESHEET:
             self.viewer.setStyleSheet(GLOBAL_STYLESHEET)
-            self.graph.context_menu().qmenu.setStyleSheet(GLOBAL_STYLESHEET)
-            for item in self.graph.context_menu().get_items():
-                if isinstance(item, NodeGraphMenu):
-                    item.qmenu.setStyleSheet(GLOBAL_STYLESHEET)
+            set_context_menu_stylesheet(self.graph.context_menu())
 
         # ------------------ Window Setup ------------------
         self.setWindowTitle("FlowDip")
@@ -125,7 +130,7 @@ class MainWindow(QMainWindow):
         self._extend_context_menu()
 
         # Create default node
-        self.graph.create_node('com.flowdip.MyNode', name='Node A', pos=(100, 100))
+        # self.graph.create_node('com.flowdip.MyNode', name='Node A', pos=(100, 100))
 
         # Add and attach the Node Palette by default
         self._create_nodes_palette()

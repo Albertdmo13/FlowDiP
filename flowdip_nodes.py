@@ -4,6 +4,8 @@ from uuid import uuid4
 from data_classes import Dataset, Image, ImageGroup
 from enum import IntEnum
 
+from NodeGraphQt import NodeGraph, BaseNode
+
 class InputState(IntEnum):
     UNKNOWN = -1
     OK = 0
@@ -24,12 +26,13 @@ class ConnectionState(IntEnum):
     INCOMPATIBLE_CONNECTION = 0
     DISCONNECTED = 1
 
-class Node():
-    def __init__(self, x, y):
-        self.name: Optional[str] = None
-        self.id: int = uuid4().int
-        self.x: float = x
-        self.y: float = y
+class FlowDiPNode(BaseNode):
+
+    __identifier__ = 'flowdip'
+
+    def __init__(self):
+        super().__init__()
+
         self.inputs: List[Input] = []
         self.outputs: List[Output] = []
         self.state: NodeState = NodeState.IDLE
@@ -100,18 +103,21 @@ class Input():
 
 
 class Output():
-    def __init__(self, name: str, node: Node):
+    def __init__(self, name: str, node: FlowDiPNode):
         self.name: str = name
-        self.node: Node = node
+        self.node: FlowDiPNode = node
         self.tooltip: Optional[str] = None
         self.connection_state: ConnectionState = ConnectionState.DISCONNECTED
         self.data = None
         self.datatype: Optional[type] = None
         self.possible_types: List[type] = []
 
-class DatasetGenerator(Node):
-    def __init__(self, x, y):
-        super().__init__(x, y)
-        self.name = __class__.__name__
+class DatasetGenerator(FlowDiPNode):
+    NODE_NAME = "Dataset Generator"
+
+    def __init__(self):
+        super().__init__()
         self.dataset: Optional[Dataset] = None
 
+AVAILABLE_NODE_TYPES = [DatasetGenerator]
+NODE_TYPE_MAP = {cls.__name__: cls for cls in AVAILABLE_NODE_TYPES}
