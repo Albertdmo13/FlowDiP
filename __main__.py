@@ -5,13 +5,17 @@ Starts with a docked Nodes Palette on the left, no menu bar.
 Uses global CSS for UI and Python theme variables for NodeGraph.
 """
 import os
-from PySide6.QtCore import Qt
+from urllib import request
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QApplication, QMainWindow, QDockWidget
 from NodeGraphQt import NodeGraph, BaseNode, NodeGraphMenu, NodesPaletteWidget
 
 from hotkey_functions import *  # if needed
 import flowdip_nodes
+
+
+from multiprocessing import Process, Queue
 
 from __init__ import *  # to load themes and global constants
 
@@ -28,7 +32,7 @@ def set_context_menu_stylesheet(menu):
 class MainWindow(QMainWindow):
     """Main application window with NodeGraph viewer and docked palette."""
 
-    def __init__(self):
+    def __init__(self, fe_manager: flowdip_nodes.FrontEndManager):
         super().__init__()
 
         # ------------------ Graph Setup ------------------
@@ -107,7 +111,7 @@ class MainWindow(QMainWindow):
 # ----------------------------------------------------------------------
 # Application Entry Point
 # ----------------------------------------------------------------------
-def main():
+def main_frontend(request_queue, response_queue):
 
     app = QApplication([])
 
@@ -121,14 +125,42 @@ def main():
     else:
         print(f"Stylesheet not found: {css_path}")
 
+    # Create frontend manager thread
+    fe_manager = flowdip_nodes.FrontEndManager(request_queue, response_queue)
+    fe_manager.start()
+
     # Launch main window
-    window = MainWindow()
+    window = MainWindow(fe_manager)
     if GLOBAL_STYLESHEET:
         window.setStyleSheet(GLOBAL_STYLESHEET)
     window.show()
 
     app.exec()
 
+    fe_manager.event_queue.put(flowdip_nodes.Event(event_type=flowdip_nodes.EventType.SHUTDOWN, payload=None))
+    fe_manager.req_queue.put(flowdip_nodes.Request(request_type=flowdip_nodes.RequestType.SHUTDOWN, payload=None))
+
+    fe_manager.wait()
+
+
+def main_backend(request_queue, response_queue):
+
+    be_manager = flowdip_nodes.BackEndManager(request_queue, response_queue)
+    be_manager.start()
+    be_manager.join()
 
 if __name__ == "__main__":
-    main()
+
+    request_queue = Queue()
+    response_queue = Queue()
+
+    backend_process = Process(target=main_backend, args=(request_queue, response_queue), daemon=True)
+    backend_process.start()
+
+    frontend_process = Process(target=main_frontend, args=(request_queue, response_queue), daemon=False)
+    frontend_process.start()
+
+    # Join processes
+    frontend_process.join()
+    backend_process.join()
+

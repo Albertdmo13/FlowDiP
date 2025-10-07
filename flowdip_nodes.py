@@ -1,48 +1,59 @@
-from time import sleep
 from typing import List, Optional, Any
-from uuid import uuid4
-from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QObject, Signal, QThread, QMetaObject, Qt, Slot
-
-from data_classes import Dataset, Image, ImageGroup
 from enum import IntEnum, Enum
-
-from NodeGraphQt import NodeGraph, BaseNode, Port
-from __init__ import *  # to load themes and global constants
+from dataclasses import dataclass
 from threading import Thread, Event
-
 from multiprocessing import Queue
+from PySide6.QtCore import QMetaObject, Qt, QThread
+from NodeGraphQt import BaseNode, Port, NodeBaseWidget
+from qtwidgets.ui_local_media_player import LocalMediaPlayer
+from data_classes import Dataset
+
+# Import global constants and themes
+from __init__ import *  # noqa
+
+
+# =============================================================================
+#  Enums and data structures
+# =============================================================================
 
 class RequestType(IntEnum):
     CREATE_NODE = 0
     EDIT_NODE = 1
     RUN_NODE = 2
+    SHUTDOWN = 3
+
 
 class EventType(IntEnum):
     UPDATE_NODE_STATE = 0
     UPDATE_PORT_STATE = 1
     SEND_FRAME = 2
+    SHUTDOWN = 3
+
 
 @dataclass
 class Request:
     request_type: RequestType
     payload: Any
 
+
 @dataclass
 class Event:
     event_type: EventType
     payload: Any
+
 
 class InferencedTask(str, Enum):
     OBJECT_DETECTION = "Object Detection"
     IMAGE_SEGMENTATION = "Image Segmentation"
     IMAGE_CLASSIFICATION = "Image Classification"
 
+
 class InputState(IntEnum):
     UNKNOWN = -1
     OK = 0
     WRONG_DTYPE = 2
     OUTPUT_ERROR = 3
+
 
 class NodeState(IntEnum):
     IDLE = 0
@@ -52,178 +63,223 @@ class NodeState(IntEnum):
     CRITICAL_INPUT_ERROR = 4
     WAITING = 5
 
+
 class ConnectionState(IntEnum):
-    # Before running
     CONNECTED_OK = 1
     INCOMPATIBLE_CONNECTION = 0
     DISCONNECTED = 1
 
 
+# =============================================================================
+#  Custom widgets
+# =============================================================================
+
+class NodeWidgetWrapper(NodeBaseWidget):
+    """Allows inserting a custom widget inside a node."""
+
+    def __init__(self, name=None, label=None, parent=None, widget_class=None):
+        super().__init__(parent)
+        self.widget_class = widget_class
+        self.value = None
+
+        self.set_name(name)
+        self.set_label(label)
+        self.set_custom_widget(widget_class())
+
+    def get_value(self):
+        return self.value
+
+    def set_value(self, value):
+        self.value = value
+
+
+# =============================================================================
+#  FrontEnd / BackEnd base node classes
+# =============================================================================
+
 class FrontEndFlowDiPNode(BaseNode):
+    """Frontend base node for FlowDiP."""
+
+    __identifier__ = "com.flowdip"
+    NODE_NAME = "Base FlowDiP Node"
 
     def __init__(self):
         super().__init__()
-
-        # Set node color using theme
         self.default_color = ACTIVE_THEME["node_bg"]
         self.set_color(*self.default_color)
 
-        # Add 'Run' button
-        self.add_button(name='Run', text='Run')
-        btn = self.get_widget('Run')
-
-        if GLOBAL_STYLESHEET:
-            btn._button.setStyleSheet(GLOBAL_STYLESHEET)
-
-        btn.setToolTip('Execute this node')
-        btn._button.clicked.connect(self.run)
-
-        self.update()
-
+    # -------------------------------------------------------------------------
     def update_state(self, state: NodeState):
+        """Updates the node color and state according to the current state."""
         self.state = state
+
         if state == NodeState.IDLE:
             self.set_color(*self.default_color)
+
         elif state == NodeState.RUNNING:
             self.set_color(*ACTIVE_THEME["node_running"])
-        elif (state == NodeState.INTERNAL_ERROR or state == NodeState.MISSING_CRITICAL_INPUT
-              or state == NodeState.CRITICAL_INPUT_ERROR):
+
+        elif state in (
+            NodeState.INTERNAL_ERROR,
+            NodeState.MISSING_CRITICAL_INPUT,
+            NodeState.CRITICAL_INPUT_ERROR,
+        ):
             self.set_color(*ACTIVE_THEME["node_error"])
+
         elif state == NodeState.WAITING:
-            default_light_color = [min(255, c*1.2) for c in self.default_color]
-            self.set_color(*default_light_color)  # Lighten
+            # Lighten color to indicate waiting
+            light_color = [min(255, int(c * 1.2)) for c in self.default_color]
+            self.set_color(*light_color)
 
         self.update()
 
+    # -------------------------------------------------------------------------
     def run(self):
-        # delegate to backend thread
+        """Runs the node (delegated to backend)."""
         QMetaObject.invokeMethod(self.backend_node, "run", Qt.QueuedConnection)
 
+
 class BackEndFlowDiPNode(Thread):
+    """Backend node with execution logic in a separate thread."""
 
-    def __init__(self, name:Optional[str] = None):
+    def __init__(self, name: Optional[str] = None):
         super().__init__()
-
         self.name = name
-
         self.start_e = Event()
         self.done_e = Event()
+        self._running = True
 
-        self.dip_inputs: List[Input] = []
-        self.dip_outputs: List[Output] = []
+        self.dip_inputs: List["Input"] = []
+        self.dip_outputs: List["Output"] = []
         self.state: NodeState = NodeState.IDLE
 
+    # -------------------------------------------------------------------------
     def run(self):
-        """Execution loop"""
-        while self._running is True:
-            # Wait for start event trigger
+        """Main execution loop."""
+        while self._running:
             self.start_e.wait()
             self.start_e.clear()
             self.done_e.clear()
 
             self.execute()
-
-            # Trigger done for waiting events
             self.done_e.set()
 
+    # -------------------------------------------------------------------------
     def execute(self):
-
+        """Executes the dependency flow and the main node function."""
         self.update_state(NodeState.WAITING)
 
-        # Make sure all critical dip_inputs are connected and OK
-        for input in self.dip_inputs:
-            cs = input.check_connection()
-            if input.connection_state != cs:
-                input.connection_state = cs
+        # Validate critical inputs
+        for input_port in self.dip_inputs:
+            cs = input_port.check_connection()
+            if input_port.connection_state != cs:
+                input_port.connection_state = cs
                 self.update_port(cs)
 
-            # If critical input is not properly connected abort execution
-            if input.connection_state != ConnectionState.CONNECTED_OK and input.critical:
+            if input_port.connection_state != ConnectionState.CONNECTED_OK and input_port.critical:
                 self.update_state(NodeState.MISSING_CRITICAL_INPUT)
-                return 
+                return
 
-        # Run all dependant nodes
-        for input in self.dip_inputs:
-            if input.output is not None and input.connection_state == ConnectionState.CONNECTED_OK:
-                input.output.node.start_e.set()
+        # Run dependent nodes
+        for input_port in self.dip_inputs:
+            if input_port.output and input_port.connection_state == ConnectionState.CONNECTED_OK:
+                input_port.output.node.start_e.set()
 
-        # Wait for all dependant nodes to finish execution
-        for input in self.dip_inputs:
-            if input.output is not None and input.connection_state == ConnectionState.CONNECTED_OK:
-                input.output.node.done_e.wait()
-                if input.output.node.state != NodeState.IDLE and input.critical:
+        # Wait for dependencies
+        for input_port in self.dip_inputs:
+            if input_port.output and input_port.connection_state == ConnectionState.CONNECTED_OK:
+                input_port.output.node.done_e.wait()
+                if input_port.output.node.state != NodeState.IDLE and input_port.critical:
                     self.update_state(NodeState.CRITICAL_INPUT_ERROR)
                     return
 
-        # If any critical input is missing or has an error, do not run
-        if NodeState.WAITING != self.state:
+        if self.state != NodeState.WAITING:
             return
-               
+
+        # Run main task
         self.update_state(NodeState.RUNNING)
         try:
             self._run()
         except Exception as e:
-            print(f"Error occurred while running node '{self.name()}': {e}")
+            print(f"Error in node '{self.name}': {e}")
             self.update_state(NodeState.INTERNAL_ERROR)
 
         if self.state == NodeState.RUNNING:
             self.update_state(NodeState.IDLE)
 
-        return
-    
+    # -------------------------------------------------------------------------
     def update_port(self, connection_state: ConnectionState):
+        """Updates the visual state of the port (stub)."""
         pass
 
     def update_state(self, node_state: NodeState):
+        """Updates the node state (stub)."""
         pass
 
+    # -------------------------------------------------------------------------
     def create_port(self, name: str, is_input: bool = True, critical: bool = False) -> Port:
-        # Create NodeGraph port
+        """Creates an input or output port with FlowDiP metadata."""
         port = self.add_input(name) if is_input else self.add_output(name)
 
-        # Wrap it in Input/Output class
         if is_input:
-            input = Input(port=port, critical=critical)
-            self.dip_inputs.append(input)
-            return input
+            input_port = Input(name, critical)
+            input_port.port = port
+            self.dip_inputs.append(input_port)
+            return input_port
         else:
-            output = Output(port=port)
-            self.dip_outputs.append(output)
-            return output
+            output_port = Output()
+            output_port.port = port
+            self.dip_outputs.append(output_port)
+            return output_port
 
+    # -------------------------------------------------------------------------
     def _run(self):
-        # To be implemented in subclasses
-        pass    
+        """Method to be overridden by subclasses."""
+        pass
 
-class Input():
+
+# =============================================================================
+#  Input/Output classes
+# =============================================================================
+
+class Input:
+    """Represents a FlowDiP input port."""
+
     def __init__(self, name: str, critical: bool = False):
-
-        self.name: str = name
-        self.output: Optional[Output] = None
-        self.critical: bool = critical
-        self.state: InputState = InputState.UNKNOWN
-        self.connection_state: ConnectionState = ConnectionState.DISCONNECTED
+        self.name = name
+        self.output: Optional["Output"] = None
+        self.critical = critical
+        self.state = InputState.UNKNOWN
+        self.connection_state = ConnectionState.DISCONNECTED
         self.tooltip: Optional[str] = None
         self.datatype: Optional[type] = None
         self.accepted_types: List[type] = []
 
     def check_connection(self) -> ConnectionState:
-        if self.output is None:
+        """Validates the connection state with its output."""
+        if not self.output:
             return ConnectionState.DISCONNECTED
-        else:
-            if len(set(self.output.possible_types) & set(self.accepted_types)) == 0:
-                return ConnectionState.INCOMPATIBLE_CONNECTION
-            
+
+        if not set(self.output.possible_types) & set(self.accepted_types):
+            return ConnectionState.INCOMPATIBLE_CONNECTION
+
         return ConnectionState.CONNECTED_OK
 
-class Output():
+
+class Output:
+    """Represents a FlowDiP output port."""
+
     def __init__(self):
-        super().__init__()
         self.tooltip: Optional[str] = None
-        self.connection_state: ConnectionState = ConnectionState.DISCONNECTED
+        self.connection_state = ConnectionState.DISCONNECTED
         self.data = None
         self.datatype: Optional[type] = None
         self.possible_types: List[type] = []
+
+
+# =============================================================================
+#  Specific nodes
+# =============================================================================
 
 class DatasetGenerator(FrontEndFlowDiPNode):
     NODE_NAME = "Dataset Generator"
@@ -232,30 +288,63 @@ class DatasetGenerator(FrontEndFlowDiPNode):
         super().__init__()
         self.dataset: Optional[Dataset] = None
 
+
+class MediaPlayer(FrontEndFlowDiPNode):
+    __identifier__ = "com.flowdip"
+    NODE_NAME = "Media Player"
+
+    def __init__(self):
+        super().__init__()
+        widget = NodeWidgetWrapper(
+            name="media_player",
+            widget_class=LocalMediaPlayer,
+            parent=self.view
+        )
+        self.add_custom_widget(widget=widget, tab="Custom")
+
+
+# =============================================================================
+#  FrontEnd / BackEnd Managers
+# =============================================================================
+
 class BackEndManager(Thread):
+    """Handles the backend request queue."""
+
     def __init__(self, req_queue: Queue, event_queue: Queue):
+        super().__init__()
         self.req_queue = req_queue
         self.event_queue = event_queue
         self._running = True
 
     def run(self):
-        while self._running is True:
+        while self._running:
             req = self.req_queue.get()
-            self.handle_request()
+            if req.request_type == RequestType.SHUTDOWN:
+                self._running = False
+            else:
+                self.handle_request(req)
 
-    def handle_request(self, request):
+    def handle_request(self, request: Request):
         pass
+
 
 class FrontEndManager(QThread):
+    """Handles frontend events."""
+
     def __init__(self, req_queue: Queue, event_queue: Queue):
+        super().__init__()
         self.req_queue = req_queue
         self.event_queue = event_queue
         self._running = True
 
     def run(self):
-        while self._running is True:
-            req = self.req_queue.get()
-            self.handle_request()
+        while self._running:
+            ev = self.event_queue.get()
+            if ev.event_type == EventType.SHUTDOWN:
+                self._running = False
+            else:
+                self.handle_event(ev)
 
-    def handle_request(self, request):
+    def handle_event(self, ev: Event):
         pass
+

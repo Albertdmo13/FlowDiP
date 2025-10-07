@@ -24,7 +24,7 @@ GRAY = {
 DARK_BLUE = {
     "background": (28, 32, 40),      # Darker background
     "grid": (45, 52, 66),            # Darker grid
-    "node_bg": (50, 52, 65),         # Darker node body
+    "node_bg": (40, 45, 57),         # Darker node body
     "node_border": (65, 80, 100),    # Darker node border
     "accent": (100, 140, 210),       # Muted accent
     "text": (210, 220, 235),         # Softer text
