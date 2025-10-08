@@ -1,48 +1,29 @@
-import os
+from enum import IntEnum
+from dataclasses import dataclass
+from typing import Any
 
-# ----------------------------------------------------------------------
-# Global Constants
-# ----------------------------------------------------------------------
+# =============================================================================
+#  Enums and data structures
+# =============================================================================
 
-BASE_DIR = os.path.dirname(__file__)
-MENU_JSON_PATH = os.path.join(BASE_DIR, "hotkeys.json")
-THEMES_DIR = os.path.join(BASE_DIR, "themes")
+class RequestType(IntEnum):
+    CREATE_NODE = 0
+    EDIT_NODE = 1
+    RUN_NODE = 2
+    SHUTDOWN = 3
 
-# ----------------------------------------------------------------------
-# Theme Color Palettes
-# ----------------------------------------------------------------------
-GRAY = {
-    "background": (34, 34, 34),   # NodeGraph background color
-    "grid": (85, 85, 85),         # NodeGraph grid color
-    "node_bg": (58, 58, 58),      # Node body color
-    "node_border": (100, 100, 100),
-    "accent": (108, 158, 255),
-    "text": (224, 224, 224),
-    "css": os.path.join(THEMES_DIR, "gray.css"),
-}
+class EventType(IntEnum):
+    UPDATE_NODE_STATE = 0
+    UPDATE_PORT_STATE = 1
+    SEND_FRAME = 2
+    SHUTDOWN = 3
 
-DARK_BLUE = {
-    "background": (28, 32, 40),      # Darker background
-    "grid": (45, 52, 66),            # Darker grid
-    "node_bg": (40, 45, 57),         # Darker node body
-    "node_border": (65, 80, 100),    # Darker node border
-    "accent": (100, 140, 210),       # Muted accent
-    "text": (210, 220, 235),         # Softer text
-    "css": os.path.join(THEMES_DIR, "dark_blue.css"),
-    "node_running" : (70, 130, 180),  # Steel blue for running state
-    "node_error" : (220, 20, 60),     # Crimson for error state
-}
+@dataclass
+class Request:
+    request_type: RequestType
+    payload: Any
 
-# Set active theme
-ACTIVE_THEME = DARK_BLUE
-
-# ----------------------------------------------------------------------
-# Global stylesheet (loaded at runtime)
-# ----------------------------------------------------------------------
-GLOBAL_STYLESHEET = ""
-
-# Load CSS stylesheet
-css_path = ACTIVE_THEME["css"]
-if os.path.exists(css_path):
-    with open(css_path, "r", encoding="utf-8") as f:
-        GLOBAL_STYLESHEET = f.read()
+@dataclass
+class Event:
+    event_type: EventType
+    payload: Any

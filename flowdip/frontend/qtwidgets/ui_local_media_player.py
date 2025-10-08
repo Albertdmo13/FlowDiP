@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Self-contained LocalMediaPlayer widget
-## Generated from: localmediaplayerwhhYZz.ui
+## Self-contained LocalMediaPlayerWidget widget
 ## Modified to be directly usable as a QWidget subclass.
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QMetaObject, QSize, Qt)
+from PySide6.QtCore import (QCoreApplication, QMetaObject, QSize)
 from PySide6.QtGui import (QIcon)
 from PySide6.QtWidgets import (QApplication, QGraphicsView, QGridLayout,
-    QHBoxLayout, QLabel, QPushButton, QTextEdit, QToolButton, QVBoxLayout, QWidget)
+    QHBoxLayout, QLabel, QPushButton, QLineEdit, QToolButton, QVBoxLayout, 
+    QWidget, QCheckBox)
 
 
-class LocalMediaPlayer(QWidget):
+class LocalMediaPlayerWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setupUi(self)
 
     def setupUi(self, Form):
         if not Form.objectName():
-            Form.setObjectName(u"LocalMediaPlayer")
+            Form.setObjectName(u"LocalMediaPlayerWidget")
         Form.resize(658, 475)
 
         self.gridLayout = QGridLayout(Form)
@@ -70,7 +70,7 @@ class LocalMediaPlayer(QWidget):
 
         self.verticalLayout.addLayout(self.hla_media_player_btns)
 
-        # --- Selector de archivo ---
+        # --- Selector de archivo + checkboxes ---
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
 
@@ -78,36 +78,49 @@ class LocalMediaPlayer(QWidget):
         self.lbl_source.setObjectName(u"lbl_source")
         self.horizontalLayout.addWidget(self.lbl_source)
 
-        self.te_filepath = QTextEdit(Form)
-        self.te_filepath.setObjectName(u"te_filepath")
-        self.te_filepath.setMaximumSize(QSize(16777215, 26))
-        self.horizontalLayout.addWidget(self.te_filepath)
+        # Usamos QLineEdit en vez de QTextEdit
+        self.le_filepath = QLineEdit(Form)
+        self.le_filepath.setObjectName(u"le_filepath")
+        self.horizontalLayout.addWidget(self.le_filepath)
 
         self.tb_filepath = QToolButton(Form)
         self.tb_filepath.setObjectName(u"tb_filepath")
         self.horizontalLayout.addWidget(self.tb_filepath)
 
+        # Checkbox Loop
+        self.chk_loop = QCheckBox(Form)
+        self.chk_loop.setObjectName(u"chk_loop")
+        self.horizontalLayout.addWidget(self.chk_loop)
+
+        # Checkbox Sync
+        self.chk_sync = QCheckBox(Form)
+        self.chk_sync.setObjectName(u"chk_sync")
+        self.horizontalLayout.addWidget(self.chk_sync)
+
         self.verticalLayout.addLayout(self.horizontalLayout)
+
+        # --- Finalizar layouts ---
         self.gridLayout.addLayout(self.verticalLayout, 0, 0, 1, 1)
 
         self.retranslateUi(Form)
         QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("LocalMediaPlayer", u"Local Media Player", None))
-        self.btn_prev_frame.setText(QCoreApplication.translate("LocalMediaPlayer", u"Previous", None))
-        self.btn_rewind.setText(QCoreApplication.translate("LocalMediaPlayer", u"Rewind", None))
-        self.btn_playpause.setText(QCoreApplication.translate("LocalMediaPlayer", u"Play", None))
-        self.btn_stop.setText(QCoreApplication.translate("LocalMediaPlayer", u"Stop", None))
-        self.btn_forward.setText(QCoreApplication.translate("LocalMediaPlayer", u"Forward", None))
-        self.btn_next_frame.setText(QCoreApplication.translate("LocalMediaPlayer", u"Next", None))
-        self.lbl_source.setText(QCoreApplication.translate("LocalMediaPlayer", u"Source", None))
-        self.tb_filepath.setText(QCoreApplication.translate("LocalMediaPlayer", u"...", None))
-
+        Form.setWindowTitle(QCoreApplication.translate("LocalMediaPlayerWidget", u"Local Media Player", None))
+        self.btn_prev_frame.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Previous", None))
+        self.btn_rewind.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Rewind", None))
+        self.btn_playpause.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Play", None))
+        self.btn_stop.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Stop", None))
+        self.btn_forward.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Forward", None))
+        self.btn_next_frame.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Next", None))
+        self.lbl_source.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Source", None))
+        self.tb_filepath.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"...", None))
+        self.chk_loop.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Loop", None))
+        self.chk_sync.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Sync", None))
 
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
-    window = LocalMediaPlayer()
+    window = LocalMediaPlayerWidget()
     window.show()
     sys.exit(app.exec())

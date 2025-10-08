@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=59.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FlowDiP"
+version = "0.1.0"
+description = "Node-Based Multimedia Processing Application"
+authors = [{ name="Alberto Díaz", email="Alberto.Diaz19@alu.uclm.com" }]
+dependencies = [
+    "NodeGraphQt==0.6.43",
+    "pip==22.0.2",
+    "PySide6==6.9.3",
+    "PySide6-Addons==6.9.3",
+    "PySide6-Essentials==6.9.3",
+    "Qt.py==1.4.7",
+    "shiboken6==6.9.3",
+    "types-pyside2==5.15.2.1.7",
+]
