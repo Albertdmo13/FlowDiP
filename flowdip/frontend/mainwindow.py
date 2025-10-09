@@ -1,14 +1,36 @@
+from typing import TYPE_CHECKING
+
+from flowdip.frontend.constants import (
+    GLOBAL_STYLESHEET,
+    ACTIVE_THEME,
+    MENU_JSON_PATH,
+)
+from flowdip.frontend.utils import set_context_menu_stylesheet
+
+if TYPE_CHECKING:
+    from flowdip.frontend.main_frontend import FrontEndManager
+
+from flowdip.frontend.flowdip_fe_base import FlowDiPNodeGraph
+import flowdip.frontend.flowdip_nodes as FlowDiPNodes
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QDockWidget,
+)
+from NodeGraphQt import NodeGraph, NodesPaletteWidget, BaseNode
+
 # ----------------------------------------------------------------------
 # Main Application Window
 # ----------------------------------------------------------------------
 class MainWindow(QMainWindow):
     """Main application window with NodeGraph viewer and docked palette."""
 
-    def __init__(self, fe_manager: flowdip_nodes.FrontEndManager):
+    def __init__(self, fe_manager: "FrontEndManager"):
         super().__init__()
 
         # ------------------ Graph Setup ------------------
-        self.graph = NodeGraph()
+        self.graph = FlowDiPNodeGraph()
         self.graph.set_context_menu_from_file(MENU_JSON_PATH)
 
         # Apply theme colors
@@ -19,9 +41,9 @@ class MainWindow(QMainWindow):
         self.graph.node_created.connect(self.update_node)
 
         # Register FlowDiP nodes
-        for flowdip_node in flowdip_nodes.__dict__.values():
-            if isinstance(flowdip_node, type) and issubclass(flowdip_node, flowdip_nodes.FrontEndFlowDiPNode):
-                self.graph.register_node(flowdip_node)
+        for node_class in FlowDiPNodes.__dict__.values():
+            if isinstance(node_class, type) and issubclass(node_class, FlowDiPNodes.FrontEndFlowDiPNode):
+                self.graph.register_node(node_class)
 
         # Viewer setup
         self.viewer = self.graph.widget
@@ -35,14 +57,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.viewer)
         self._extend_context_menu()
 
-        # Create default node
-        # self.graph.create_node('com.flowdip.MyNode', name='Node A', pos=(100, 100))
-
         # Add and attach the Node Palette by default
         self._create_nodes_palette()
 
     def update_node(self, node: BaseNode):
-        if isinstance(node, flowdip_nodes.FrontEndFlowDiPNode):
+        if isinstance(node, FlowDiPNodes.FrontEndFlowDiPNode):
 
             node.active_theme = ACTIVE_THEME
             node.default_color = ACTIVE_THEME["node_bg"]

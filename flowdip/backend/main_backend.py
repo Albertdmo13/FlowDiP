@@ -1,3 +1,6 @@
+from threading import Thread
+from multiprocessing import Queue
+from flowdip import Request, RequestType
 
 # ----------------------------------------------------------------------
 # Back End Manager
@@ -23,8 +26,7 @@ class BackEndManager(Thread):
     def handle_request(self, request: Request):
         pass
 
-def main_backend(request_queue, response_queue):
-
+def main(request_queue, response_queue):
     be_manager = BackEndManager(request_queue, response_queue)
     be_manager.start()
     be_manager.join()

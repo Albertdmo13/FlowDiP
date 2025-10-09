@@ -1,8 +1,40 @@
+from xml.dom import Node
+from NodeGraphQt import NodeBaseWidget, BaseNode, NodeGraph
+from PySide6.QtCore import Qt, QMetaObject
+from typing import Optional, Any
+from flowdip.backend.flowdip_be_base import NodeState
+
+# =============================================================================
+#  Custom NodeGraph
+# =============================================================================
+NodeGraph.create_node
+class FlowDiPNodeGraph(NodeGraph):
+    """Wrapper for NodeGraph to add custom functionality if needed."""
+    def __init__(self):
+        super().__init__()
+
+    def create_node(
+        self,
+        node_type: str,
+        name: Optional[str] = None,
+        selected: bool = True,
+        color: Any | None = None,
+        text_color: Any | None = None,
+        pos: Any | None = None,
+        push_undo: bool | None = None,
+    ) -> Any:
+        node = super().create_node(node_type, name, selected, color,
+                                   text_color, pos, push_undo)
+
+        if isinstance(node, FrontEndFlowDiPNode):
+            print("Custom setup for FlowDiP node for node {name}".format(name=node.name()))
+
+        return node
 # =============================================================================
 #  Custom widgets
 # =============================================================================
 
-class NodeWidgetWrapper(NodeBaseWidget):
+class FlowDiPNodeWidget(NodeBaseWidget):
     """Allows inserting a custom widget inside a node."""
 
     def __init__(self, name=None, label=None, parent=None, widget_class=None):
@@ -31,7 +63,7 @@ class FrontEndFlowDiPNode(BaseNode):
         self.active_theme = None
 
         if widget_class is not None:
-            widget = NodeWidgetWrapper(
+            widget = FlowDiPNodeWidget(
                 name="media_player",
                 widget_class=widget_class,
                 parent=self.view
