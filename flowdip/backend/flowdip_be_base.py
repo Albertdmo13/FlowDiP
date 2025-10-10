@@ -81,9 +81,9 @@ class Output(Port):
 class BackEndFlowDiPNode(Thread):
     """Backend node with execution logic in a separate thread."""
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, flowdip_name: Optional[str] = None, loop: bool = False):
         super().__init__()
-        self.name = name
+        self.flowdip_name = flowdip_name
         self.start_e = Event()
         self.done_e = Event()
         self._running = True
@@ -91,7 +91,7 @@ class BackEndFlowDiPNode(Thread):
         self.dip_inputs: List[Input] = []
         self.dip_outputs: List[Output] = []
         self.state: NodeState = NodeState.IDLE
-        self._loop = False
+        self._loop = loop
 
     # -------------------------------------------------------------------------
     def run(self):
@@ -143,7 +143,7 @@ class BackEndFlowDiPNode(Thread):
         try:
             self._process_data()
         except Exception as e:
-            print(f"Error in node '{self.name}': {e}")
+            print(f"Error in node '{self.flowdip_name}': {e}")
             self.update_state(NodeState.INTERNAL_ERROR)
 
         # Propagate execution toward output nodes ----------------------------
@@ -176,12 +176,12 @@ class BackEndFlowDiPNode(Thread):
         pass
 
     # -------------------------------------------------------------------------
-    def create_port(self, name: str, is_input: bool = True, critical: bool = False) -> Port:
+    def create_port(self, flowdip_name: str, is_input: bool = True, critical: bool = False) -> Port:
         """Creates an input or output port with FlowDiP metadata."""
-        port = self.add_input(name) if is_input else self.add_output(name)
+        port = self.add_input(flowdip_name) if is_input else self.add_output(flowdip_name)
 
         if is_input:
-            input_port = Input(name, critical)
+            input_port = Input(flowdip_name, critical)
             input_port.port = port
             self.dip_inputs.append(input_port)
             return input_port

@@ -7,9 +7,6 @@ from flowdip.frontend.constants import (
 )
 from flowdip.frontend.utils import set_context_menu_stylesheet
 
-if TYPE_CHECKING:
-    from flowdip.frontend.main_frontend import FrontEndManager
-
 from flowdip.frontend.flowdip_fe_base import FlowDiPNodeGraph
 import flowdip.frontend.flowdip_nodes as FlowDiPNodes
 from PySide6.QtCore import Qt
@@ -18,7 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QDockWidget,
 )
-from NodeGraphQt import NodeGraph, NodesPaletteWidget, BaseNode
+from NodeGraphQt import NodesPaletteWidget, BaseNode
 
 # ----------------------------------------------------------------------
 # Main Application Window
@@ -26,11 +23,11 @@ from NodeGraphQt import NodeGraph, NodesPaletteWidget, BaseNode
 class MainWindow(QMainWindow):
     """Main application window with NodeGraph viewer and docked palette."""
 
-    def __init__(self, fe_manager: "FrontEndManager"):
+    def __init__(self, fe_manager):
         super().__init__()
 
         # ------------------ Graph Setup ------------------
-        self.graph = FlowDiPNodeGraph()
+        self.graph = FlowDiPNodeGraph(fe_manager)
         self.graph.set_context_menu_from_file(MENU_JSON_PATH)
 
         # Apply theme colors
@@ -42,7 +39,7 @@ class MainWindow(QMainWindow):
 
         # Register FlowDiP nodes
         for node_class in FlowDiPNodes.__dict__.values():
-            if isinstance(node_class, type) and issubclass(node_class, FlowDiPNodes.FrontEndFlowDiPNode):
+            if isinstance(node_class, type) and issubclass(node_class, FlowDiPNodes.FrontFlowDiPNode):
                 self.graph.register_node(node_class)
 
         # Viewer setup
@@ -61,11 +58,10 @@ class MainWindow(QMainWindow):
         self._create_nodes_palette()
 
     def update_node(self, node: BaseNode):
-        if isinstance(node, FlowDiPNodes.FrontEndFlowDiPNode):
+        if isinstance(node, FlowDiPNodes.FrontFlowDiPNode):
 
             node.active_theme = ACTIVE_THEME
-            node.default_color = ACTIVE_THEME["node_bg"]
-            node.set_color(*node.default_color)
+            node.set_color(*ACTIVE_THEME["node_bg"])
 
     # ------------------------------------------------------------------
     def _extend_context_menu(self):

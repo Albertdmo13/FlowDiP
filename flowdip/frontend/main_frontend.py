@@ -1,6 +1,5 @@
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication
-import os
 from multiprocessing import Queue
 from flowdip import Event, EventType, Request, RequestType
 from flowdip.frontend.constants import GLOBAL_STYLESHEET
@@ -25,6 +24,9 @@ class FrontEndManager(QThread):
                 self._running = False
             else:
                 self.handle_event(ev)
+
+    def publish_request(self, req: Request):
+        self.req_queue.put(req)
 
     def handle_event(self, ev: Event):
         pass
