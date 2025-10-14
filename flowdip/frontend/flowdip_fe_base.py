@@ -86,7 +86,7 @@ class FlowDiPNodeGraph(NodeGraph):
 class FlowDiPNodeWidget(NodeBaseWidget):
     """Allows inserting a custom widget inside a node."""
 
-    def __init__(self, name=None, label=None, parent=None, widget_class=None):
+    def __init__(self, name=None, label=None, parent=None, widget_class=None, flowdip_node=None):
         super().__init__(parent)
         self.widget_class = widget_class
         self.value = None
@@ -94,7 +94,7 @@ class FlowDiPNodeWidget(NodeBaseWidget):
 
         self.set_name(name)
         self.set_label(label)
-        self.set_custom_widget(widget_class())
+        self.set_custom_widget(widget_class(flowdip_node=flowdip_node))
 
     def get_value(self):
         return self.value
@@ -127,7 +127,8 @@ class FrontFlowDiPNode(BaseNode):
             widget = FlowDiPNodeWidget(
                 name=self.name(),
                 widget_class=self.widget_class,
-                parent=self.view
+                parent=self.view,
+                flowdip_node=self
             )
             self.add_custom_widget(widget=widget)
             self.logger.info(f"Custom widget added to node {self.name()}")

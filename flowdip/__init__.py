@@ -13,12 +13,14 @@ class RequestType(IntEnum):
     EDIT_NODE = 1
     DELETE_NODE = 2
     RUN_NODE = 3
+    UPDATE_NODE_PARAMS = 4
 
 class EventType(IntEnum):
     SHUTDOWN = -1
     UPDATE_NODE_STATE = 0
     UPDATE_PORT_STATE = 1
-    SEND_FRAME = 2
+    NEW_FRAME = 2
+    UPDATE_NODE_PARAMS = 3
 
 @dataclass
 class Request:
@@ -39,8 +41,19 @@ class CreateNodePayload:
 
 @dataclass
 class DeleteNodePayload:
-    node_class_name: str
     flowdip_name: str
+
+# @dataclass
+# class UpdateShmPayload:
+#     flowdip_name: str
+#     shm_name: str
+#     shm_shape: tuple
+#     shm_dtype: Any
+
+@dataclass
+class UpdateNodeParamsPayload:
+    flowdip_name: str
+    new_params: dict
 
 # =============================================================================
 # Helper: logger factory

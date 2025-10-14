@@ -55,6 +55,13 @@ class BackEndManager(Thread):
         if req_type == RequestType.CREATE_NODE:
             self.create_node(req_payload)
 
+        if req_type == RequestType.UPDATE_NODE_PARAMS:
+            for node in self.nodes:
+                if node.flowdip_name == req_payload.flowdip_name:
+                    node.update_params(req_payload.new_params)
+                    self.logger.info(f"Node parameters updated: {node}")
+                    break
+
     def create_node(self, req_payload):
         # Unpack payload
         node_class_name = req_payload.node_class_name
@@ -68,7 +75,7 @@ class BackEndManager(Thread):
         for cls in BackEndFlowDiPNode.__subclasses__():
             if cls.__name__ == node_class_name:
                 node_class = cls
-                new_node = node_class(flowdip_name=flowdip_name, loop=loop, **other_params)
+                new_node = node_class(flowdip_name=flowdip_name, loop=loop, **other_params, be_manager=self)
                 self.nodes.add(new_node)
                 self.logger.info(f"Node created and added: {new_node}")
                 break
@@ -77,15 +84,14 @@ class BackEndManager(Thread):
             self.logger.error(f"Node class '{node_class_name}' not found among Base Node subclasses.")
 
     def delete_node(self, req_payload):
-        node_class_name = req_payload.node_class_name
         flowdip_name = req_payload.flowdip_name
 
-        self.logger.info(f"Deleting node: class={node_class_name}, name={flowdip_name}")
+        self.logger.info(f"Deleting node: name={flowdip_name}")
 
         # Find and remove the node from the set
         node_to_remove = None
         for node in self.nodes:
-            if node.flowdip_name == flowdip_name and node.__class__.__name__ == node_class_name:
+            if node.flowdip_name == flowdip_name:
                 node_to_remove = node
                 break
 

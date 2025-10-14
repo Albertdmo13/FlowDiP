@@ -16,6 +16,7 @@ class FrontEndManager(QThread):
         self.req_queue = req_queue
         self.event_queue = event_queue
         self._running = True
+        self.nodes = []
 
     def run(self):
         while self._running:
@@ -29,6 +30,15 @@ class FrontEndManager(QThread):
         self.req_queue.put(req)
 
     def handle_event(self, ev: Event):
+
+        if ev.event_type == EventType.UPDATE_NODE_PARAMS:
+            # Handle node parameter updates if needed
+            for node in MainWindow.all_nodes:
+                if node.flowdip_name == ev.payload["flowdip_name"]:
+                    node.update_shared_memory(ev.payload["shm_name"],
+                                              ev.payload["shm_shape"],
+                                              ev.payload["shm_dtype"])
+                    break
         pass
 
 # ----------------------------------------------------------------------

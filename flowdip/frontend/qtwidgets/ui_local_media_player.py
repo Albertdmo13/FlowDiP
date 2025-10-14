@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 ################################################################################
 ## Self-contained LocalMediaPlayerWidget widget
 ## Modified to be directly usable as a QWidget subclass.
@@ -7,34 +6,37 @@
 
 from PySide6.QtCore import (QCoreApplication, QMetaObject, QSize)
 from PySide6.QtGui import (QIcon)
-from PySide6.QtWidgets import (QApplication, QGraphicsView, QGridLayout,
-    QHBoxLayout, QLabel, QPushButton, QLineEdit, QToolButton, QVBoxLayout, 
-    QWidget, QCheckBox)
+from PySide6.QtWidgets import (
+    QApplication, QGraphicsView, QGridLayout, QHBoxLayout, QLabel,
+    QPushButton, QLineEdit, QToolButton, QVBoxLayout, QWidget,
+    QCheckBox, QFileDialog
+)
 
 
 class LocalMediaPlayerWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, flowdip_node=None):
+        self.flowdip_node = flowdip_node  # Reference to the associated FlowDiP node
         super().__init__(parent)
         self.setupUi(self)
+        self.setupConnections()  # Connect signals after creating the widgets
 
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"LocalMediaPlayerWidget")
         Form.resize(658, 475)
-
         self.gridLayout = QGridLayout(Form)
         self.gridLayout.setObjectName(u"gridLayout")
 
-        # --- Layout principal vertical ---
+        # --- Main vertical layout ---
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
 
-        # --- Vista de video ---
+        # --- Video display ---
         self.gv_display = QGraphicsView(Form)
         self.gv_display.setObjectName(u"gv_display")
         self.verticalLayout.addWidget(self.gv_display)
 
-        # --- Botones del reproductor ---
+        # --- Media player buttons ---
         self.hla_media_player_btns = QHBoxLayout()
         self.hla_media_player_btns.setObjectName(u"hla_media_player_btns")
 
@@ -70,7 +72,7 @@ class LocalMediaPlayerWidget(QWidget):
 
         self.verticalLayout.addLayout(self.hla_media_player_btns)
 
-        # --- Selector de archivo + checkboxes ---
+        # --- File selector + checkboxes ---
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
 
@@ -78,34 +80,36 @@ class LocalMediaPlayerWidget(QWidget):
         self.lbl_source.setObjectName(u"lbl_source")
         self.horizontalLayout.addWidget(self.lbl_source)
 
-        # Usamos QLineEdit en vez de QTextEdit
+        # QLineEdit to display the file path
         self.le_filepath = QLineEdit(Form)
         self.le_filepath.setObjectName(u"le_filepath")
         self.horizontalLayout.addWidget(self.le_filepath)
 
+        # Tool button "..." to open the file explorer
         self.tb_filepath = QToolButton(Form)
         self.tb_filepath.setObjectName(u"tb_filepath")
         self.horizontalLayout.addWidget(self.tb_filepath)
 
-        # Checkbox Loop
+        # Checkbox for Loop
         self.chk_loop = QCheckBox(Form)
         self.chk_loop.setObjectName(u"chk_loop")
         self.horizontalLayout.addWidget(self.chk_loop)
 
-        # Checkbox Sync
+        # Checkbox for Sync
         self.chk_sync = QCheckBox(Form)
         self.chk_sync.setObjectName(u"chk_sync")
         self.horizontalLayout.addWidget(self.chk_sync)
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        # --- Finalizar layouts ---
+        # --- Finalize layouts ---
         self.gridLayout.addLayout(self.verticalLayout, 0, 0, 1, 1)
 
         self.retranslateUi(Form)
         QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
+        # Set text for all UI elements
         Form.setWindowTitle(QCoreApplication.translate("LocalMediaPlayerWidget", u"Local Media Player", None))
         self.btn_prev_frame.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Previous", None))
         self.btn_rewind.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Rewind", None))
@@ -117,6 +121,23 @@ class LocalMediaPlayerWidget(QWidget):
         self.tb_filepath.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"...", None))
         self.chk_loop.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Loop", None))
         self.chk_sync.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Sync", None))
+
+    def setupConnections(self):
+        """Connect button events."""
+        self.tb_filepath.clicked.connect(self.select_video_file)
+
+    def select_video_file(self):
+        """Open the file explorer and update the QLineEdit with the selected path."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select video file",
+            "",
+            "Video files (*.mp4 *.avi *.mov *.mkv *.wmv *.flv);;All files (*)"
+        )
+        if file_path:
+            self.le_filepath.setText(file_path)
+            self.flowdip_node.update_videopath(file_path)
+
 
 if __name__ == "__main__":
     import sys

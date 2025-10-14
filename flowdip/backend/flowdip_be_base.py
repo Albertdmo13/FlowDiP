@@ -81,8 +81,9 @@ class Output(Port):
 class BackEndFlowDiPNode(Thread):
     """Backend node with execution logic in a separate thread."""
 
-    def __init__(self, flowdip_name: Optional[str] = None, loop: bool = False):
+    def __init__(self, flowdip_name: Optional[str] = None, loop: bool = False, be_manager: Any = None):
         super().__init__()
+        self.be_manager = be_manager
         self.flowdip_name = flowdip_name
         self.start_e = Event()
         self.done_e = Event()
@@ -195,3 +196,8 @@ class BackEndFlowDiPNode(Thread):
     def _process_data(self):
         """Method to be overridden by subclasses."""
         pass
+
+    def update_params(self):
+        """Method to be overridden by subclasses."""
+        pass
+
