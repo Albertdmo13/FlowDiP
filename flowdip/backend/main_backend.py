@@ -1,7 +1,8 @@
+from hmac import new
 import logging
 from threading import Thread
 from multiprocessing import Queue
-from flowdip import Request, RequestType
+from flowdip import Request, RequestType, Event, EventType, CreateNodePayload, DeleteNodePayload
 from typing import Set
 from flowdip.backend.flowdip_be_base import BackEndFlowDiPNode
 
@@ -62,11 +63,13 @@ class BackEndManager(Thread):
                     self.logger.info(f"Node parameters updated: {node}")
                     break
 
-    def create_node(self, req_payload):
+    def publish_event(self, ev: Event):
+        self.event_queue.put(ev)
+
+    def create_node(self, req_payload: CreateNodePayload):
         # Unpack payload
         node_class_name = req_payload.node_class_name
         flowdip_name = req_payload.flowdip_name
-        loop = req_payload.loop
         other_params = req_payload.other_params if req_payload.other_params else {}
 
         self.logger.info(f"Creating node: class={node_class_name}, name={flowdip_name}")
@@ -75,15 +78,16 @@ class BackEndManager(Thread):
         for cls in BackEndFlowDiPNode.__subclasses__():
             if cls.__name__ == node_class_name:
                 node_class = cls
-                new_node = node_class(flowdip_name=flowdip_name, loop=loop, **other_params, be_manager=self)
+                new_node = node_class(flowdip_name=flowdip_name, **other_params, be_manager=self)
                 self.nodes.add(new_node)
+                new_node.start()
                 self.logger.info(f"Node created and added: {new_node}")
                 break
 
         if node_class is None:
             self.logger.error(f"Node class '{node_class_name}' not found among Base Node subclasses.")
 
-    def delete_node(self, req_payload):
+    def delete_node(self, req_payload: DeleteNodePayload):
         flowdip_name = req_payload.flowdip_name
 
         self.logger.info(f"Deleting node: name={flowdip_name}")

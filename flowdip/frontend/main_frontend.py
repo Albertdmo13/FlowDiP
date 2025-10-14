@@ -4,6 +4,8 @@ from multiprocessing import Queue
 from flowdip import Event, EventType, Request, RequestType
 from flowdip.frontend.constants import GLOBAL_STYLESHEET
 from flowdip.frontend.mainwindow import MainWindow
+from flowdip.frontend.flowdip_fe_base import FlowDiPNodeGraph
+
 # ----------------------------------------------------------------------
 # Front End Manager
 # ----------------------------------------------------------------------
@@ -16,7 +18,7 @@ class FrontEndManager(QThread):
         self.req_queue = req_queue
         self.event_queue = event_queue
         self._running = True
-        self.nodes = []
+        self.graph = None  # type: FlowDiPNodeGraph
 
     def run(self):
         while self._running:
@@ -33,13 +35,10 @@ class FrontEndManager(QThread):
 
         if ev.event_type == EventType.UPDATE_NODE_PARAMS:
             # Handle node parameter updates if needed
-            for node in MainWindow.all_nodes:
-                if node.flowdip_name == ev.payload["flowdip_name"]:
-                    node.update_shared_memory(ev.payload["shm_name"],
-                                              ev.payload["shm_shape"],
-                                              ev.payload["shm_dtype"])
+            for node in self.graph.all_nodes():
+                if node.flowdip_name == ev.payload.flowdip_name:
+                    node.update_params(ev.payload.new_params)
                     break
-        pass
 
 # ----------------------------------------------------------------------
 # Application Entry Point
@@ -52,12 +51,15 @@ def main(request_queue, response_queue):
     if GLOBAL_STYLESHEET is not None:
         app.setStyleSheet(GLOBAL_STYLESHEET)
 
-    # Create frontend manager thread
+        # Create frontend manager thread
     fe_manager = FrontEndManager(request_queue, response_queue)
+    window = MainWindow(fe_manager)
+
+    fe_manager.graph = window.graph
+
     fe_manager.start()
 
     # Launch main window
-    window = MainWindow(fe_manager)
     if GLOBAL_STYLESHEET:
         window.setStyleSheet(GLOBAL_STYLESHEET)
     window.show()

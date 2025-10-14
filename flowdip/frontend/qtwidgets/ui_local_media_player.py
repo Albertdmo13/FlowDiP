@@ -1,24 +1,25 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-## Self-contained LocalMediaPlayerWidget widget
-## Modified to be directly usable as a QWidget subclass.
+## LocalMediaPlayerWidget using CustomOpenGLWidget for video rendering
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QMetaObject, QSize)
-from PySide6.QtGui import (QIcon)
+from PySide6.QtCore import QCoreApplication, QMetaObject
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QApplication, QGraphicsView, QGridLayout, QHBoxLayout, QLabel,
+    QApplication, QGridLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QToolButton, QVBoxLayout, QWidget,
     QCheckBox, QFileDialog
 )
 
+from flowdip.frontend.qtwidgets.ui_custom_opengl_widget import CustomOpenGLWidget
 
 class LocalMediaPlayerWidget(QWidget):
     def __init__(self, parent=None, flowdip_node=None):
         self.flowdip_node = flowdip_node  # Reference to the associated FlowDiP node
         super().__init__(parent)
+        self.video_display = None
         self.setupUi(self)
-        self.setupConnections()  # Connect signals after creating the widgets
+        self.setupConnections()
 
     def setupUi(self, Form):
         if not Form.objectName():
@@ -31,10 +32,10 @@ class LocalMediaPlayerWidget(QWidget):
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
 
-        # --- Video display ---
-        self.gv_display = QGraphicsView(Form)
-        self.gv_display.setObjectName(u"gv_display")
-        self.verticalLayout.addWidget(self.gv_display)
+        # --- Video display (replaced QGraphicsView with CustomOpenGLWidget) ---
+        self.video_display = CustomOpenGLWidget(Form, flowdip_node=self.flowdip_node)
+        self.video_display.setObjectName(u"video_display")
+        self.verticalLayout.addWidget(self.video_display)
 
         # --- Media player buttons ---
         self.hla_media_player_btns = QHBoxLayout()
@@ -80,22 +81,18 @@ class LocalMediaPlayerWidget(QWidget):
         self.lbl_source.setObjectName(u"lbl_source")
         self.horizontalLayout.addWidget(self.lbl_source)
 
-        # QLineEdit to display the file path
         self.le_filepath = QLineEdit(Form)
         self.le_filepath.setObjectName(u"le_filepath")
         self.horizontalLayout.addWidget(self.le_filepath)
 
-        # Tool button "..." to open the file explorer
         self.tb_filepath = QToolButton(Form)
         self.tb_filepath.setObjectName(u"tb_filepath")
         self.horizontalLayout.addWidget(self.tb_filepath)
 
-        # Checkbox for Loop
         self.chk_loop = QCheckBox(Form)
         self.chk_loop.setObjectName(u"chk_loop")
         self.horizontalLayout.addWidget(self.chk_loop)
 
-        # Checkbox for Sync
         self.chk_sync = QCheckBox(Form)
         self.chk_sync.setObjectName(u"chk_sync")
         self.horizontalLayout.addWidget(self.chk_sync)
@@ -109,7 +106,6 @@ class LocalMediaPlayerWidget(QWidget):
         QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
-        # Set text for all UI elements
         Form.setWindowTitle(QCoreApplication.translate("LocalMediaPlayerWidget", u"Local Media Player", None))
         self.btn_prev_frame.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Previous", None))
         self.btn_rewind.setText(QCoreApplication.translate("LocalMediaPlayerWidget", u"Rewind", None))
@@ -127,7 +123,7 @@ class LocalMediaPlayerWidget(QWidget):
         self.tb_filepath.clicked.connect(self.select_video_file)
 
     def select_video_file(self):
-        """Open the file explorer and update the QLineEdit with the selected path."""
+        """Open a file dialog and update the QLineEdit with the selected path."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select video file",
@@ -136,7 +132,8 @@ class LocalMediaPlayerWidget(QWidget):
         )
         if file_path:
             self.le_filepath.setText(file_path)
-            self.flowdip_node.update_videopath(file_path)
+            if self.flowdip_node:
+                self.flowdip_node.update_videopath(file_path)
 
 
 if __name__ == "__main__":

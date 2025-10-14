@@ -80,8 +80,9 @@ class Output(Port):
 
 class BackEndFlowDiPNode(Thread):
     """Backend node with execution logic in a separate thread."""
+    _loop: bool = False  # If true, node runs in a continuous loop
 
-    def __init__(self, flowdip_name: Optional[str] = None, loop: bool = False, be_manager: Any = None):
+    def __init__(self, flowdip_name: Optional[str] = None, be_manager: Any = None):
         super().__init__()
         self.be_manager = be_manager
         self.flowdip_name = flowdip_name
@@ -92,7 +93,6 @@ class BackEndFlowDiPNode(Thread):
         self.dip_inputs: List[Input] = []
         self.dip_outputs: List[Output] = []
         self.state: NodeState = NodeState.IDLE
-        self._loop = loop
 
     # -------------------------------------------------------------------------
     def run(self):

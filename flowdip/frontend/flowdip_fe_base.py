@@ -37,14 +37,14 @@ class FlowDiPNodeGraph(NodeGraph):
             node.request_backend_node(self.fe_manager)
 
         return node
-    
+
     def cut_nodes(self, nodes=None):
         super().cut_nodes(nodes)
         self.logger.info(f"[Node Graph] : Nodes cut event triggered")
         if nodes is not None:
             for node in nodes:
                 self.delete_backend_node(node)
-    
+
     def remove_node(self, node, push_undo=True):
         self.logger.info(f"[Node Graph] : Node remove event triggered")
         self.delete_backend_node(node)
@@ -55,7 +55,7 @@ class FlowDiPNodeGraph(NodeGraph):
         for node in nodes:
             self.delete_backend_node(node)
         return super().remove_nodes(nodes, push_undo)
-    
+
     def delete_node(self, node: BaseNode, push_undo: bool = True) -> None:
         self.logger.info(f"[Node Graph] : Node delete event triggered")
         self.delete_backend_node(node)
@@ -86,15 +86,15 @@ class FlowDiPNodeGraph(NodeGraph):
 class FlowDiPNodeWidget(NodeBaseWidget):
     """Allows inserting a custom widget inside a node."""
 
-    def __init__(self, name=None, label=None, parent=None, widget_class=None, flowdip_node=None):
+    def __init__(self, name=None, label=None, parent=None, embedded_widget=None):
         super().__init__(parent)
-        self.widget_class = widget_class
+        self.embedded_widget = embedded_widget
         self.value = None
         self.logger = get_logger(self.__class__.__name__)  # logger by class name
 
         self.set_name(name)
         self.set_label(label)
-        self.set_custom_widget(widget_class(flowdip_node=flowdip_node))
+        self.set_custom_widget(embedded_widget)
 
     def get_value(self):
         return self.value
@@ -102,7 +102,6 @@ class FlowDiPNodeWidget(NodeBaseWidget):
     def set_value(self, value):
         self.logger.debug(f"Value set on widget {self.get_name()}: {value}")
         self.value = value
-
 
 class FrontFlowDiPNode(BaseNode):
     """Frontend base node for FlowDiP."""
@@ -113,7 +112,6 @@ class FrontFlowDiPNode(BaseNode):
     # Overwritable class attributes
     widget_class = None
     be_node_class = None
-    loop = True
 
     def __init__(self):
         super().__init__()
@@ -123,12 +121,13 @@ class FrontFlowDiPNode(BaseNode):
         # logger uses node's name instead of class name
         self.logger = get_logger(self.name())
 
+        self.embedded_widget = self.widget_class(flowdip_node=self)
+
         if self.widget_class is not None:
             widget = FlowDiPNodeWidget(
                 name=self.name(),
-                widget_class=self.widget_class,
                 parent=self.view,
-                flowdip_node=self
+                embedded_widget=self.embedded_widget
             )
             self.add_custom_widget(widget=widget)
             self.logger.info(f"Custom widget added to node {self.name()}")
@@ -144,7 +143,6 @@ class FrontFlowDiPNode(BaseNode):
                 payload=CreateNodePayload(
                     node_class_name=self.be_node_class.__name__,
                     flowdip_name=self.flowdip_name,
-                    loop=self.loop
                 )
             ))
 
@@ -180,7 +178,5 @@ class FrontFlowDiPNode(BaseNode):
                 + self.__class__.__name__.removeprefix("Front") + "."
                 + str(uuid.uuid4()))
 
-    def run(self):
-        """Runs the node (delegated to backend)."""
-        self.logger.info(f"Running node {self.name()}")
-        QMetaObject.invokeMethod(self.backend_node, "run", Qt.QueuedConnection)
+    def update_params(self, new_params: dict):
+        pass # To be optionally overridden in subclasses

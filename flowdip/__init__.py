@@ -36,19 +36,11 @@ class Event:
 class CreateNodePayload:
     node_class_name: str
     flowdip_name: str
-    loop: bool = False
     other_params: dict = None
 
 @dataclass
 class DeleteNodePayload:
     flowdip_name: str
-
-# @dataclass
-# class UpdateShmPayload:
-#     flowdip_name: str
-#     shm_name: str
-#     shm_shape: tuple
-#     shm_dtype: Any
 
 @dataclass
 class UpdateNodeParamsPayload:

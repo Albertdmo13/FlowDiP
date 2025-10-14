@@ -16,4 +16,6 @@ dependencies = [
     "Qt.py==1.4.7",
     "shiboken6==6.9.3",
     "types-pyside2==5.15.2.1.7",
+    "opencv-python==4.12.0.88",
+    "PyOpenGL==3.1.10"
 ]
