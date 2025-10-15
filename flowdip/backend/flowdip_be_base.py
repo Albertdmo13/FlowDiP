@@ -2,7 +2,7 @@
 from typing import Any, List, Optional
 from enum import IntEnum, Enum
 from threading import Thread, Event
-
+import time
 # =============================================================================
 #  Enums and data structures
 # =============================================================================
@@ -160,7 +160,16 @@ class BackEndFlowDiPNode(Thread):
             for output_port in self.dip_outputs:
                 output_port.node.done_e.wait()
 
+        # If needed, wait to sync with framerate
+        self.wait()
+
         self.update_state(NodeState.IDLE)
+
+
+    def wait(self):
+        """Video loop nodes may need to wait for a certain amount of time
+        after processing to maintain a target framerate."""
+        pass # To be overridden by subclasses if needed
 
     def update_port_data(output_port: Output, data: Any):
         """Updates the data of an output port."""

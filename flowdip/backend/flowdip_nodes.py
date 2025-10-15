@@ -43,7 +43,6 @@ class BackMediaPlayer(BackEndFlowDiPNode):
         self.frametime = 1.0 / fps if fps > 0 else 0.033  # Default to ~30 FPS if unknown
 
         ret, frame = self.cap.read()
-
         frame_shape = frame.shape
         frame_dtype = frame.dtype
 
@@ -64,6 +63,7 @@ class BackMediaPlayer(BackEndFlowDiPNode):
             self.update_frontend_shared_memory()
 
     def _process_data(self):
+
         if self.cap is None or not self.cap.isOpened():
             if self.videopath:
                 self.open_video_cap_from_file(self.videopath)
@@ -71,18 +71,7 @@ class BackMediaPlayer(BackEndFlowDiPNode):
                 raise ValueError("VideoCapture is not opened. Please set a valid videopath before processing data.")
 
         ret, frame = self.cap.read()
-
-        # TODO: Waiting should be done after _process_data finishes
-        # this way dependant nodes start processing immediately
-        # Maybe wait while previous nodes are still processing?
-        current_time = time.time()
-        elapsed = current_time - self.last_frame_ts
-        if elapsed < self.frametime:
-            time.sleep(self.frametime - elapsed)
-            self.last_frame_ts = current_time + (self.frametime - elapsed)
-        else:
-            self.last_frame_ts = current_time
-
+        
         # Write frame to shared memory
         np_frame = np.ndarray(self.frame_shape, dtype=self.frame_dtype, buffer=self.shm.buf)
         np.copyto(np_frame, frame)
@@ -97,6 +86,19 @@ class BackMediaPlayer(BackEndFlowDiPNode):
                 )
             )
         )
+
+    def wait(self):
+        current_time = time.time()
+        to_wait = 0
+
+        if self.frametime > 0:
+            elapsed = current_time - self.last_frame_ts
+            to_wait = self.frametime - elapsed
+            if to_wait > 0:
+                time.sleep(to_wait)
+                print(f"Waiting {to_wait:.3f} seconds to sync with framerate.")
+
+        self.last_frame_ts = current_time + max(to_wait, 0)
 
     def update_frontend_shared_memory(self):
         self.be_manager.publish_event(
