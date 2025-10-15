@@ -1,4 +1,4 @@
-from time import sleep
+import time
 import cv2
 import numpy as np
 from multiprocessing.shared_memory import SharedMemory
@@ -21,6 +21,9 @@ class BackMediaPlayer(BackEndFlowDiPNode):
         self.frame_size = None
         self.frame_dtype = None
 
+        self.frametime = 0
+        self.last_frame_ts = time.time()
+
     def open_video_cap_from_file(self, videopath):
 
         if not videopath:
@@ -35,6 +38,9 @@ class BackMediaPlayer(BackEndFlowDiPNode):
             raise ValueError(f"Failed to open video file at '{self.videopath}'. Please check the file and try again.")
 
         self.videopath = videopath
+
+        fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.frametime = 1.0 / fps if fps > 0 else 0.033  # Default to ~30 FPS if unknown
 
         ret, frame = self.cap.read()
 
@@ -65,7 +71,18 @@ class BackMediaPlayer(BackEndFlowDiPNode):
                 raise ValueError("VideoCapture is not opened. Please set a valid videopath before processing data.")
 
         ret, frame = self.cap.read()
-        sleep(0.016)  # Simulate processing time
+
+        # TODO: Waiting should be done after _process_data finishes
+        # this way dependant nodes start processing immediately
+        # Maybe wait while previous nodes are still processing?
+        current_time = time.time()
+        elapsed = current_time - self.last_frame_ts
+        if elapsed < self.frametime:
+            time.sleep(self.frametime - elapsed)
+            self.last_frame_ts = current_time + (self.frametime - elapsed)
+        else:
+            self.last_frame_ts = current_time
+
         # Write frame to shared memory
         np_frame = np.ndarray(self.frame_shape, dtype=self.frame_dtype, buffer=self.shm.buf)
         np.copyto(np_frame, frame)
