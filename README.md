@@ -1,8 +1,8 @@
-# FlowDiP – Data Pipeliner
-
 <p align="center">
-<img src="./resources/FlowDiP_wide.svg">
+  <img src="./resources/FlowDiP_wide.svg" width="500">
 </p>
+
+# FlowDiP – Data Pipeliner
 
 **Flow Data Pipeliner (FlowDiP)** is a Qt-based desktop application designed to manage and streamline data sources to create a Video Processing Pipeline.
 
